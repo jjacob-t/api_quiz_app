@@ -10,41 +10,74 @@ class QuizScreen extends StatefulWidget {
 }
  
 class _QuizScreenState extends State<QuizScreen> {
-  final List<Question> _questions = [
-    Question(
-      category: 'General Knowledge',
-      difficulty: 'easy',
-      question: 'What is the capital of France?',
-      correctAnswer: 'Paris',
-      allAnswers: ['Berlin', 'Paris', 'Madrid', 'Rome'],
-    ),
-    Question(
-      category: 'General Knowledge',
-      difficulty: 'easy',
-      question: 'How many sides does a triangle have?',
-      correctAnswer: '3',
-      allAnswers: ['3', '4', '5', '6'],
-    ),
-  ];
+  List<Question> _questions = [];
+  int _currentQuestionIndex = 0;
+  int _score = 0;
   bool _answered = false;
   String? _selectedAnswer;
 
   @override
   void initState() {
     super.initState();
+    _loadQuestions();
+  }
+
+  Future<void> _loadQuestions() async {
+    final questions = await ApiService().fetchQuestions();
+    setState(() {
+      _questions = questions;
+      _currentQuestionIndex = 0;
+      _score = 0;
+      _answered = false;
+      _selectedAnswer = null;
+    });
   }
 
   void _onAnswerTapped(String answer) {
     if (_answered) return;
+    final correct = _questions[_currentQuestionIndex].correctAnswer == answer;
     setState(() {
       _answered = true;
       _selectedAnswer = answer;
+      if (correct) _score++;
     });
+  }
+
+  void _nextQuestion() {
+    if (_currentQuestionIndex < _questions.length - 1) {
+      setState(() {
+        _currentQuestionIndex++;
+        _answered = false;
+        _selectedAnswer = null;
+      });
+    } else {
+      _showResultDialog();
+    }
+  }
+  
+  void _showResultDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Quiz Complete 🎉'),
+        content: Text('$_score / ${_questions.length}'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _loadQuestions();
+            },
+            child: const Text('Play Again'),
+          ),
+        ],
+      ),
+    );
   }
 
   Color _buttonColor(String answer) {
     if (!_answered) return Theme.of(context).colorScheme.primaryContainer;
-    final correct = _questions[0].correctAnswer;
+    final correct = _questions[_currentQuestionIndex].correctAnswer;
     if (answer == correct) return Colors.green.shade400;
     if (answer == _selectedAnswer) return Colors.red.shade400;
     return Theme.of(context).colorScheme.surfaceContainerHighest;
@@ -52,19 +85,35 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final q = _questions[0];
+    if (_questions.isEmpty) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final q = _questions[_currentQuestionIndex];
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Trivia Quiz'),
         centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(child: Text('Score: $_score')),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Text(
+              '${_currentQuestionIndex + 1} / ${_questions.length}',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -94,6 +143,21 @@ class _QuizScreenState extends State<QuizScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
+                ),
+              ),
+            ),
+            const Spacer(),
+            AnimatedOpacity(
+              opacity: _answered ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: FilledButton(
+                onPressed: _answered ? _nextQuestion : null,
+                style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52)),
+                child: Text(
+                  _currentQuestionIndex < _questions.length - 1
+                      ? 'Next Question'
+                      : 'See Results',
                 ),
               ),
             ),
