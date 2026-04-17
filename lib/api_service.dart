@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'question.dart';
 
 class ApiService {
-  static const String _baseUrl = 'https://opentdb.com/api.php';
+  static const String _baseUrl = 'https://opentdb.com/api.php?amount=10&category=9&difficulty=easy&type=multiple';
 
   // Fetches [amount] trivia questions from the OpenTDB API.
   //
